@@ -1,13 +1,14 @@
 import { votes, polls, options } from "../database/db.js";
 import { ObjectId } from "mongodb";
+import dayjs from "dayjs";
 
 export async function postPoll(req, res){
     const title = req.body.title
     let expiration;
     if (req.body.expireAt){expiration = req.body.expireAt}
     else{
-        let currentDay = new Date();
-        currentDay.setDate(currentDay.getDate() + 30);
+        let currentDay = dayjs();
+        currentDay=currentDay.add(30,'days')
         expiration = currentDay.format("YYYY-MM-DD hh:mm:ss")
     }
     try
@@ -46,7 +47,7 @@ export async function postChoice(req, res){
                 pollId:pollId
             }
         )
-        const toSend = await pollId.findOne(
+        const toSend = await options.findOne(
             {
                 title:title,
                 pollId:pollId
@@ -59,42 +60,48 @@ export async function postChoice(req, res){
 }
 export async function getChoice(req, res){
     const id = req.params.id;
+    console.log(id)
     try{
         const resArr = await options.find({
-            pollId:id
+            pollId: ObjectId(id)
         }).toArray();
         res.send(resArr)
     }catch(err){res.sendStatus(500)}
 }
 export async function postVote(req, res){
     const id = req.params.id;
-    const currentDay = new Date();
+    console.log(id)
+    const currentDay = dayjs().format("YYYY-MM-DD hh:mm:ss");
+    console.log(currentDay)
     try{
         await votes.insertOne(
             {
-                createdAt: currentDay.format("YYYY-MM-DD hh:mm:ss"), 
+                createdAt: currentDay, 
                 choiceId: ObjectId(id), 
             }
         )
         res.sendStatus(201)
-    }catch(err){res.sendStatus(500)}
+    }catch(err){console.log(err);res.sendStatus(500)}
 
 }
 export async function getResult(req, res){
     const pollId = req.params.id;
-
-    
+    console.log(pollId)
     try{
         let mostVotes = 0;
         let mostVotesIndex = 0;
         const optionsArr = await options.find({
             pollId: ObjectId(pollId)
         }).toArray()
+        console.log(optionsArr)
         for (let i =0;i<optionsArr.length;i++) {
-            const numVotes = await (await votes.find({choiceId:option._id}).toArray()).length
+            const numVotes = await (await votes.find({choiceId:optionsArr[i]._id}).toArray()).length
+            console.log(numVotes)
             if (numVotes>mostVotes){
                 mostVotes = numVotes;
                 mostVotesIndex = i;
+                console.log("max votes")
+                console.log(mostVotes)
             }
         }
         const poll = await polls.findOne({_id : ObjectId(pollId)})
@@ -108,9 +115,5 @@ export async function getResult(req, res){
             }
         }
         res.send(toSend)
-
-
-
-
     }catch(err){res.sendStatus(500)}
 }
